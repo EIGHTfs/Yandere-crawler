@@ -1,4 +1,4 @@
 __pycache__/
-log/log.txt
-src.txt
+*.txt
+*.json
 config.json
