@@ -6,7 +6,7 @@ import threading
 import Http
 import Yandere
 import Function
-
+import os
 
 def switch_convert(status):
     # 将选项转换为1/0以便判断，倒不是我忘了用bool……
@@ -106,14 +106,15 @@ def download(post):
     # 如果网站上post的tags被修改，那么两次爬取的文件名是不同的，exist方法将返回假。这样会造成相同文件重复写入。只有“爬取至上次终止位置”不会出现此问题。
     # ——又不是不能用.jpg
     if Function.exists(folder_path, file_name):
-        add_log(post['id'] + ' 已存在，跳过')
-        return True
+        if os.path.getsize(folder_path+'/'+file_name) == post['file_size']:
+            add_log(post['id'] + ' 已存在，跳过')
+            return True
 
-    add_log('{} 开始下载p{} 大小{}M 类型{}'.format(time.strftime('%H:%M:%S'), post['id'], "%.2f" %(post['file_size'] / 1048576), post['file_ext']))
+    add_log('{} 开始下载\n{} :{}M'.format(time.strftime('%H:%M:%S'), file_name,"%.2f" %(post['file_size'] / 1048576)))
     ts = time.time()
     img = Http.get(post['file_url'], {'Host': 'files.yande.re', 'Referer': 'https://yande.re/post/show/' + post['id']})
     cost_time = time.time() - ts
-    add_log('{}下载完毕，耗时{}s，平均速度{}k/s'.format(post['id'], "%.2f" %cost_time, "%.2f" %(post['file_size'] / 1024 / cost_time)))
+    add_log('{}下载完毕\n耗时{}s，平均速度{}k/s'.format(file_name, "%.2f" %cost_time, "%.2f" %(post['file_size'] / 1024 / cost_time)))
 
     Function.write(folder_path, file_name, img)
 
@@ -129,7 +130,7 @@ def add_log(content):
     else:
         container.insert('end', content + '\n')
         container.see('end')
-    Function.add(folder_path, log_file_name, content + '\n')
+    Function.add(os.path.split(__file__)[0], log_file_name, content + '\n')
 
 def main(settings: dict, tags: str, discard_tags: str, output_container, output_mode: str):
     global end
@@ -143,15 +144,20 @@ def main(settings: dict, tags: str, discard_tags: str, output_container, output_
     data = []
     mode = output_mode
     container = output_container
-    log_file_name = 'log_{}.txt'.format(time.strftime('%H-%M-%S'))
-    folder_path = settings['folder_path'] + '/' + time.strftime('%Y%m%d')
+    #log_file_name =  'log/log_{}.txt'.format(time.strftime('%H-%M-%S'))
+    log_file_name = 'Yandere-crawler-log.txt'
+    #folder_path = settings['folder_path'] + '/' + time.strftime('%Y%m%d')
+    folder_path = settings['folder_path']
     lock = threading.Condition()
     Function.create_folder(folder_path)
 
     # 建立线程
     # 只启用了单线程
     get_data(settings, tags)
-    parallel_task(settings, discard_tags).join()
+    #parallel_task(settings, discard_tags).join()
+    for task in [parallel_task(settings, discard_tags) for _ in range(3)]:
+        task.join()
+    
 
 # 也可以不用进程锁
 # 生产者线程：抓取页面，将post元素补充入data队列
@@ -174,6 +180,7 @@ class get_data(threading.Thread):
             last_stop_id = settings['tagSearch_last_stop_id']
         else:
             last_stop_id = settings['last_stop_id']
+        #print(last_stop_id)    
         tags = self.tags
         while True:
             if lock.acquire():
@@ -203,6 +210,8 @@ class get_data(threading.Thread):
                                 settings['tagSearch_last_stop_id'] = last_stop_id
                             else:
                                 settings['last_stop_id'] = last_stop_id
+                        settings['start_page'] = page - 1        
+                        Function.write(settings['folder_path'], 'config.json', Yandere.return_json(settings), True)                                  
                         page += 1
                         lock.notify(1)
                     else:
@@ -241,6 +250,8 @@ class parallel_task(threading.Thread):
                     if post['id'] <= last_stop_id and not stop_page:
                         # 达到上次爬取位置，跳出循环
                         add_log('达到上次爬取终止位置')
+                        settings['last_stop_id'] = 0
+                        Function.write(settings['folder_path'], 'config.json', Yandere.return_json(settings), True)
                         end = True
                         lock.release()
                         break

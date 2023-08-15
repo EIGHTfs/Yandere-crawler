@@ -32,7 +32,7 @@ Windows下命令行执行`python index.py`或`python GUI.py`均可，Linux下可
 
 ## 注意事项
 
-每次运行后`config.json`中`last_stop_id`参数会被自动修改为爬取到的第一张图片的ID，便于下一次爬取时只爬取新post，无论停止条件为ID或是页码。
+每次运行后`config.json`中`start_page`参数会被自动修改为停止时的上一页页码。
 
 ## 更新日志
 
