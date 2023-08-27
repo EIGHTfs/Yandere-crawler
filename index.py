@@ -26,6 +26,7 @@ def compare(width, height):
         return 3
 
 def input_settings(settings: dict):
+    settings['task'] = int(input('下载线程：'))
     settings['start_page'] = int(input('开始页码：'))
     settings['stop_page'] = int(input('停止页码，为0时爬取至上次终止图片，非0时爬完此页即停止：'))
     settings['pic_type'] = int(input('图片比例，0=全部 1=横图 2=竖图 3=正方形：'))
@@ -144,8 +145,8 @@ def main(settings: dict, tags: str, discard_tags: str, output_container, output_
     data = []
     mode = output_mode
     container = output_container
-    #log_file_name =  'log/log_{}.txt'.format(time.strftime('%H-%M-%S'))
-    log_file_name = 'Yandere-crawler-log.txt'
+    log_file_name =  'Yandere-crawler-log-{}.txt'.format(time.strftime('%H-%M-%S'))
+    #log_file_name = 'Yandere-crawler-log.txt'
     #folder_path = settings['folder_path'] + '/' + time.strftime('%Y%m%d')
     folder_path = settings['folder_path']
     lock = threading.Condition()
@@ -155,7 +156,7 @@ def main(settings: dict, tags: str, discard_tags: str, output_container, output_
     # 只启用了单线程
     get_data(settings, tags)
     #parallel_task(settings, discard_tags).join()
-    for task in [parallel_task(settings, discard_tags) for _ in range(3)]:
+    for task in [parallel_task(settings, discard_tags) for _ in range(settings['task'])]:
         task.join()
     
 
@@ -210,7 +211,7 @@ class get_data(threading.Thread):
                                 settings['tagSearch_last_stop_id'] = last_stop_id
                             else:
                                 settings['last_stop_id'] = last_stop_id
-                        settings['start_page'] = page - 1        
+                        settings['start_page'] = page        
                         Function.write(settings['folder_path'], 'config.json', Yandere.return_json(settings), True)                                  
                         page += 1
                         lock.notify(1)
